@@ -2322,7 +2322,7 @@ dpif_netlink_get_datapath_version(void)
 }
 
 const struct dpif_class dpif_netlink_class = {
-    "system",
+    "system",		// datapath type
     dpif_netlink_enumerate,
     NULL,
     dpif_netlink_open,

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// 该模块针对 ofproto-provider.h 中的 ofproto_classs 接口进行了具体的实现
+
 #include <config.h>
 
 #include "ofproto/ofproto-dpif.h"
@@ -255,8 +257,8 @@ COVERAGE_DEFINE(rev_mcast_snooping);
 struct dpif_backer {
     char *type;
     int refcount;
-    struct dpif *dpif;
-    struct udpif *udpif;
+    struct dpif *dpif;		// datapath interface 的具体实现
+    struct udpif *udpif;	// 处理 ofproto 的 upcall，维护 datapath 的 flow table
 
     struct ovs_rwlock odp_to_ofport_lock;
     struct hmap odp_to_ofport_map OVS_GUARDED; /* Contains "struct ofport"s. */
@@ -507,6 +509,7 @@ lookup_ofproto_dpif_by_port_name(const char *name)
     return NULL;
 }
 
+// 根据 datapath 的 type 选择对应的「维护过程」
 static int
 type_run(const char *type)
 {
@@ -519,11 +522,13 @@ type_run(const char *type)
         return 0;
     }
 
-
+    // 周期性运行 datapath 需要的任务
     if (dpif_run(backer->dpif)) {
         backer->need_revalidate = REV_RECONFIGURE;
     }
 
+    // 周期性运行 datapath 需要的维护任务
+    // 对于 openflow 的 datapath 来说，维护过程主要就是定期维护 datapath 所使用的 flow 内容
     udpif_run(backer->udpif);
 
     /* If vswitchd started with other_config:flow_restore_wait set as "true",
@@ -543,6 +548,7 @@ type_run(const char *type)
         backer->need_revalidate = REV_RECONFIGURE;
     }
 
+    // 启动多线程 upcall handler
     if (backer->recv_set_enable) {
         udpif_set_threads(backer->udpif, n_handlers, n_revalidators);
     }
@@ -668,6 +674,7 @@ type_run(const char *type)
         udpif_revalidate(backer->udpif);
     }
 
+    // 监听并处理 datapath 的每个 port 的变化，并做出相应处理
     process_dpif_port_changes(backer);
 
     return 0;
@@ -3456,6 +3463,8 @@ port_dump_done(const struct ofproto *ofproto_ OVS_UNUSED, void *state_)
     return 0;
 }
 
+// 监听各个 port 的变化，是否有新增或者删除 port
+// 变化的 port 会被写入 devnamep
 static int
 port_poll(const struct ofproto *ofproto_, char **devnamep)
 {
@@ -3471,6 +3480,7 @@ port_poll(const struct ofproto *ofproto_, char **devnamep)
         return EAGAIN;
     }
 
+    // ofproto->port_poll_set 这个队列中保存着发生变化的 Port 的 name
     *devnamep = sset_pop(&ofproto->port_poll_set);
     return 0;
 }
@@ -3493,6 +3503,7 @@ port_is_lacp_current(const struct ofport *ofport_)
 
 /* If 'rule' is an OpenFlow rule, that has expired according to OpenFlow rules,
  * then delete it entirely. */
+// 判断一个 rule 是否过期
 static void
 rule_expire(struct rule_dpif *rule)
     OVS_REQUIRES(ofproto_mutex)
@@ -3512,11 +3523,13 @@ rule_expire(struct rule_dpif *rule)
         modified = rule->up.modified;
         ovs_mutex_unlock(&rule->up.mutex);
 
+	// openflow 通过 idle_timeout 和 hard_timeout 控制 rule 过期的时间
         if (now > modified + hard_timeout * 1000) {
             reason = OFPRR_HARD_TIMEOUT;
         }
     }
 
+    // 判断一个 rule 距离最近一次被使用时间 stats.used 是否已经超过了 idle_timeout
     if (reason < 0 && idle_timeout) {
         long long int used;
 
@@ -3559,6 +3572,7 @@ ofproto_dpif_execute_actions(struct ofproto_dpif *ofproto,
         rule_dpif_credit_stats(rule, &stats);
     }
 
+    // 初始化 xin
     xlate_in_init(&xin, ofproto, flow, flow->in_port.ofp_port, rule,
                   stats.tcp_flags, packet);
     xin.ofpacts = ofpacts;
@@ -5462,6 +5476,7 @@ ofproto_dpif_delete_internal_flow(struct ofproto_dpif *ofproto,
     return 0;
 }
 
+// ofproto_dpif_class 对 ofproto_class 接口的实现
 const struct ofproto_class ofproto_dpif_class = {
     init,
     enumerate_types,

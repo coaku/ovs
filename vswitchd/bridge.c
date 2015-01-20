@@ -108,7 +108,9 @@ struct port {
     struct list ifaces;         /* List of "struct iface"s. */
 };
 
+// ovs-bridge 结构体，其中最重要的是 ofproto 这个字段，指向了其使用的 OpenFlow 交换机的实现
 struct bridge {
+    // hmap_node 表明该结构体是另一个 hmap 中的一个节点
     struct hmap_node node;      /* In 'all_bridges'. */
     char *name;                 /* User-specified arbitrary name. */
     char *type;                 /* Datapath type. */
@@ -117,7 +119,7 @@ struct bridge {
     const struct ovsrec_bridge *cfg;
 
     /* OpenFlow switch processing. */
-    struct ofproto *ofproto;    /* OpenFlow switch. */
+    struct ofproto *ofproto;    /* OpenFlow switch. Most IMPORTANT! */
 
     /* Bridge ports. */
     struct hmap ports;          /* "struct port"s indexed by name. */
@@ -137,6 +139,7 @@ struct bridge {
 };
 
 /* All bridges, indexed by name. */
+// 全局哈希表，保存了所有的 bridge 对象
 static struct hmap all_bridges = HMAP_INITIALIZER(&all_bridges);
 
 /* OVSDB IDL used to obtain configuration. */
@@ -315,6 +318,7 @@ static void add_vlan_splinter_ports(struct bridge *,
                                     const unsigned long int *splinter_vlans,
                                     struct shash *ports);
 
+// 根据配置初始化 bridge 的 open flow 相关参数
 static void
 bridge_init_ofproto(const struct ovsrec_open_vswitch *cfg)
 {
@@ -328,6 +332,7 @@ bridge_init_ofproto(const struct ovsrec_open_vswitch *cfg)
 
     shash_init(&iface_hints);
 
+    // 从配置信息中读取出所有的 bridge，以及相应的端口等信息
     if (cfg) {
         for (i = 0; i < cfg->n_bridges; i++) {
             const struct ovsrec_bridge *br_cfg = cfg->bridges[i];
@@ -352,6 +357,7 @@ bridge_init_ofproto(const struct ovsrec_open_vswitch *cfg)
         }
     }
 
+    // 用上述信息初始化 ofproto 数据结构
     ofproto_init(&iface_hints);
 
     shash_destroy_free_data(&iface_hints);
@@ -2797,12 +2803,13 @@ bridge_run__(void)
 
     /* Let each datapath type do the work that it needs to do. */
     sset_init(&types);
-    ofproto_enumerate_types(&types);
-    SSET_FOR_EACH (type, &types) {
+    ofproto_enumerate_types(&types); 	// 枚举并注册所有 datapath 的 type 字段到集合 types 中
+    SSET_FOR_EACH (type, &types) {	// 遍历运行每个 type 的 type_run 过程
         ofproto_type_run(type);
     }
     sset_destroy(&types);
 
+    // 监听各个 port/netdev 的变化，做及时更新动作
     /* Let each bridge do the work that it needs to do. */
     HMAP_FOR_EACH (br, node, &all_bridges) {
         ofproto_run(br->ofproto);
@@ -2840,12 +2847,14 @@ bridge_run(void)
     } else if (!ovsdb_idl_has_lock(idl)) {
         return;
     }
+    // 从 ovsdb 获取配置信息?
     cfg = ovsrec_open_vswitch_first(idl);
 
     /* Initialize the ofproto library.  This only needs to run once, but
      * it must be done after the configuration is set.  If the
      * initialization has already occurred, bridge_init_ofproto()
      * returns immediately. */
+    // 根据配置初始化 bridge 的 ofproto 相关数据结构，只初始化一次
     bridge_init_ofproto(cfg);
 
     /* Once the value of flow-restore-wait is false, we no longer should
@@ -2855,6 +2864,9 @@ bridge_run(void)
                                         "flow-restore-wait", false));
     }
 
+    // 关键的过程：
+    // 1. 对 datapath 做各种维护
+    // 2. 对 datapath 的各种变动做出反应
     bridge_run__();
 
     /* Re-configure SSL.  We do this on every trip through the main loop,

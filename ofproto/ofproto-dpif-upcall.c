@@ -93,6 +93,10 @@ struct revalidator {
  *    - Revalidation threads which read the datapath flow table and maintains
  *      them.
  */
+// udpif 的功能有两个：
+// 1. 处理 openflow datapath 找不到对应 flow 时传递过来的 upcall
+// 2. 验证 datapath 所用的 flow 是否还有效
+//
 struct udpif {
     struct list list_node;             /* In all_udpifs list. */
 
@@ -102,6 +106,7 @@ struct udpif {
     struct handler *handlers;          /* Upcall handlers. */
     size_t n_handlers;
 
+    // 验证 datapath 的 flow 是否有效的一个 thread
     struct revalidator *revalidators;  /* Flow revalidators. */
     size_t n_revalidators;
 
@@ -465,6 +470,7 @@ udpif_start_threads(struct udpif *udpif, size_t n_handlers,
  * 'n_handlers' and 'n_revalidators' can never be zero.  'udpif''s
  * datapath handle must have packet reception enabled before starting
  * threads. */
+// 启动 n_handlers 个线程以处理 ofproto 的 upcall
 void
 udpif_set_threads(struct udpif *udpif, size_t n_handlers,
                   size_t n_revalidators)
@@ -488,6 +494,7 @@ udpif_set_threads(struct udpif *udpif, size_t n_handlers,
             return;
         }
 
+	// 启动 upcall handler 线程
         udpif_start_threads(udpif, n_handlers, n_revalidators);
     }
     ovsrcu_quiesce_end();

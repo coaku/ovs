@@ -94,6 +94,7 @@ struct datapath {
 	u32 user_features;
 };
 
+// 看起来是 ovs 的自定义 tunnel 信息放在了 sk_buff->cb 里了
 /**
  * struct ovs_skb_cb - OVS data in skb CB
  * @egress_tun_info: Tunnel information about this packet on egress path.

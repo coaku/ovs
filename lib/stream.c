@@ -221,6 +221,7 @@ stream_open(const char *name, struct stream **streamp, uint8_t dscp)
 
     /* Call class's "open" function. */
     suffix_copy = xstrdup(strchr(name, ':') + 1);
+    // 打开对应的 socket，并包装成一个 stream 对象，赋值给 stream
     error = class->open(name, suffix_copy, &stream, dscp);
     free(suffix_copy);
     if (error) {
@@ -698,6 +699,7 @@ stream_open_with_default_port(const char *name_,
     } else {
         name = xstrdup(name_);
     }
+    // 打开对应的 socket 
     error = stream_open(name, streamp, dscp);
     free(name);
 

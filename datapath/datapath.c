@@ -253,10 +253,11 @@ void ovs_dp_detach_port(struct vport *p)
 	ovs_vport_del(p);
 }
 
+// 真正的数据包处理过程
 /* Must be called with rcu_read_lock. */
 void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 {
-	const struct vport *p = OVS_CB(skb)->input_vport;
+	const struct vport *p = OVS_CB(skb)->input_vport; // get input vport
 	struct datapath *dp = p->dp;
 	struct sw_flow *flow;
 	struct sw_flow_actions *sf_acts;
@@ -266,7 +267,7 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 
 	stats = this_cpu_ptr(dp->stats_percpu);
 
-	/* Look up flow. */
+	/* Look up flow. 根据 key 值和 skb 数据包进行流表匹配 */
 	flow = ovs_flow_tbl_lookup_stats(&dp->table, key, skb_get_hash(skb),
 					 &n_mask_hit);
 	if (unlikely(!flow)) {
@@ -277,6 +278,7 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 		upcall.userdata = NULL;
 		upcall.portid = ovs_vport_find_upcall_portid(p, skb);
 		upcall.egress_tun_info = NULL;
+		// 流表匹配失败，则将数据直接送至用户态
 		error = ovs_dp_upcall(dp, skb, key, &upcall);
 		if (unlikely(error))
 			kfree_skb(skb);
@@ -286,6 +288,7 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 		goto out;
 	}
 
+	// 更新统计信息后，执行流表中的 action 动作
 	ovs_flow_stats_update(flow, key->tp.flags, skb);
 	sf_acts = rcu_dereference(flow->sf_acts);
 	ovs_execute_actions(dp, skb, sf_acts, key);
@@ -300,6 +303,7 @@ out:
 	u64_stats_update_end(&stats->syncp);
 }
 
+// 当一个包无法找到对应匹配的流表时，会通过 netlink 送至用户空间
 int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
 		  const struct sw_flow_key *key,
 		  const struct dp_upcall_info *upcall_info)

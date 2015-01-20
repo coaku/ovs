@@ -34,7 +34,7 @@ extern "C" {
  *
  * This structure should be treated as opaque by dpif implementations. */
 struct dpif {
-    const struct dpif_class *dpif_class;
+    const struct dpif_class *dpif_class; // datapath interface 的一个实现
     char *base_name;
     char *full_name;
     uint8_t netflow_engine_type;
@@ -83,6 +83,7 @@ dpif_flow_dump_thread_init(struct dpif_flow_dump_thread *thread,
  * necessary to obtain a result.  Thus, they may not return EAGAIN or
  * EWOULDBLOCK or EINPROGRESS.  We may relax this requirement in the future if
  * and when we encounter performance problems. */
+// 一个 datapath 需要实现的接口
 struct dpif_class {
     /* Type of dpif in this class, e.g. "system", "netdev", etc.
      *

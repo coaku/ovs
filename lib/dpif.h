@@ -673,6 +673,7 @@ struct dpif_flow_del {
  * implementation.
  *
  * This works even if 'actions_len' is too long for a Netlink attribute. */
+// 对指定 packet 执行 actions
 struct dpif_execute {
     /* Input. */
     const struct nlattr *actions;   /* Actions to execute on packet. */

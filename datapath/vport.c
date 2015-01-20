@@ -443,6 +443,7 @@ u32 ovs_vport_find_upcall_portid(const struct vport *vport, struct sk_buff *skb)
  * skb->data should point to the Ethernet header.  The caller must have already
  * called compute_ip_summed() to initialize the checksumming fields.
  */
+// 数据包接收函数，该函数是数据包进入 openVswitch 的入口
 void ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
 		       const struct ovs_tunnel_info *tun_info)
 {
@@ -450,6 +451,7 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
 	struct sw_flow_key key;
 	int error;
 
+	// 更新 cpu 的包统计信息
 	stats = this_cpu_ptr(vport->percpu_stats);
 	u64_stats_update_begin(&stats->syncp);
 	stats->rx_packets++;
@@ -459,12 +461,16 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
 	ovs_skb_init_inner_protocol(skb);
 	OVS_CB(skb)->input_vport = vport;
 	OVS_CB(skb)->egress_tun_info = NULL;
+	// step1. 根据 tun_info 和 skb 提取出相应的 sw_flow_key
 	error = ovs_flow_key_extract(tun_info, skb, &key);
 	if (unlikely(error)) {
+		// PS: unlikely 和 likely 是为了告知编译器做分支判断的优化
 		kfree_skb(skb);
 		return;
 	}
 
+	// step2. 进行真正的数据包处理
+	// ovs datapath process packet
 	ovs_dp_process_packet(skb, &key);
 }
 
@@ -477,11 +483,14 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
  * Sends the given packet and returns the length of data sent.  Either ovs
  * lock or rcu_read_lock must be held.
  */
+// 数据包发送的出口
 int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
 {
+	// 调用 vport 中指定的操作函数族中的 send 来发送
 	int sent = vport->ops->send(vport, skb);
 
 	if (likely(sent > 0)) {
+		// 发送成功则更新 cpu 的包统计信息
 		struct pcpu_sw_netstats *stats;
 
 		stats = this_cpu_ptr(vport->percpu_stats);

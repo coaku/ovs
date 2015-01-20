@@ -62,6 +62,7 @@ extern struct ovs_mutex ofproto_mutex;
  *
  * With few exceptions, ofproto implementations may look at these fields but
  * should not modify them. */
+// 该结构体描述了一个完整的 OpenFlow 交换机
 struct ofproto {
     struct hmap_node hmap_node; /* In global 'all_ofprotos' hmap. */
     const struct ofproto_class *ofproto_class;
@@ -117,6 +118,8 @@ struct ofproto {
      * ofproto_mutex during a flow_mod, because otherwise a "learn" action
      * triggered by the executing the packet would try to recursively modify
      * the flow table and reacquire the global lock. */
+    // 这个列表存在的目的是延迟执行 rule 规则，否则并发执行会造成全局锁的争夺?
+    // 过程 run_rule_executes 专门处理这个列表中的 rule_execute 对象
     struct guarded_list rule_executes; /* Contains "struct rule_execute"s. */
 
     /* Linux VLAN device support (e.g. "eth0.10" for VLAN 10.)
@@ -678,6 +681,7 @@ struct ofproto_class {
      * it needs type-level maintenance.
      *
      * Returns 0 if successful, otherwise a positive errno value. */
+    // ofproto provider 通过这个接口，根据 type 对 datapath 做对应的周期性维护动作
     int (*type_run)(const char *type);
 
     /* Causes the poll loop to wake up when a type 'type''s 'run'
@@ -748,6 +752,10 @@ struct ofproto_class {
      *     its hard_timeout or idle_timeout, to expire the flow.
      *
      * Returns 0 if successful, otherwise a positive errno value. */
+    // MOST IMPORTANT !!!!!!!!!
+    // run 是 ofproto_class 工作的核心接口，负责处理
+    // 	1. datapath 无法处理的数据包
+    // 	2. 根据 openflow 协议的 hard_timeout 和 idle_timeout 时间淘汰过期的 flow
     int (*run)(struct ofproto *ofproto);
 
     /* Causes the poll loop to wake up when 'ofproto''s 'run' function needs to
@@ -1190,6 +1198,7 @@ struct ofproto_class {
      * The implementation should add the statistics for 'packet' into 'rule'.
      *
      * Returns 0 if successful, otherwise an OpenFlow error code. */
+    // 通过 OpenFlow 的 OFPT_FLOW_MOD 指令对 packet 执行指定的 rule 规则
     enum ofperr (*rule_execute)(struct rule *rule, const struct flow *flow,
                                 struct ofpbuf *packet);
 

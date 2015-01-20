@@ -77,10 +77,14 @@ main(int argc, char *argv[])
 
     proctitle_init(argc, argv);
     service_start(&argc, &argv);
+    // 从参数中解析出 ovs-vswitchd 接受外部控制命令的 sock 地址，即 unixctl_path
+    // 同时也获取到 ovsdb 的地址信息(sock)，返回给 remote 变量
     remote = parse_options(argc, argv, &unixctl_path);
     fatal_ignore_sigpipe();
+    // ovsdb 数据库表结构的初始化
     ovsrec_init();
 
+    // 让进程 daemon 化
     daemonize_start();
 
     if (want_mlockall) {
@@ -93,16 +97,19 @@ main(int argc, char *argv[])
 #endif
     }
 
+    // 创建一个 unixctl_server，监听在 unixctl_path，ovs-appctl 即是它的 client
     retval = unixctl_server_create(unixctl_path, &unixctl);
     if (retval) {
         exit(EXIT_FAILURE);
     }
     unixctl_command_register("exit", "", 0, 0, ovs_vswitchd_exit, &exiting);
 
+    // 从 ovsdb 获取配置信息，并初始化 bridge
     bridge_init(remote);
     free(remote);
 
     exiting = false;
+    // 主循环，每个循环间通过 poll_block 阻塞进行间隔
     while (!exiting) {
         memory_run();
         if (memory_should_report()) {
@@ -113,9 +120,13 @@ main(int argc, char *argv[])
             memory_report(&usage);
             simap_destroy(&usage);
         }
+	// 执行所有 datapath 需要的周期性动作:
+	// 1. 监听和处理来自 datapath 的 upcall
+	// 2. 对 package 进行完整处理过程
+	// 3. 包括完成必要的配置更新，以及对 all_bridge 上的每个 bridge 的 ofproto 执行 ofproto_run()
         bridge_run();
         unixctl_server_run(unixctl);
-        netdev_run();
+        netdev_run(); // 执行所有 netdev 需要的周期性动作
 
         memory_wait();
         bridge_wait();
@@ -124,7 +135,7 @@ main(int argc, char *argv[])
         if (exiting) {
             poll_immediate_wake();
         }
-        poll_block();
+        poll_block(); // block
         if (should_service_stop()) {
             exiting = true;
         }

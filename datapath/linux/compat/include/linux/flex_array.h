@@ -22,19 +22,25 @@ struct flex_array_part;
  * vmalloc().
  */
 
+// 哈希桶结构
+// 一个桶中存放的是 hash 值碰撞的元素
+// 因此，仅根据 hash 值在 flex_array 结构中找到对应的 bucket 后，还需要遍历该 bucket 中的所有元素以确定
 struct flex_array {
 	union {
 		struct {
-			int element_size;
-			int total_nr_elements;
-			int elems_per_part;
+			int element_size;      // 下面弹性数组中元素大小
+			int total_nr_elements; // 下面弹性数组元素总个数
+			int elems_per_part;    // 每个 part 指针指向的空间能存储多少元素
 			struct reciprocal_value reciprocal_elems;
+			// 弹性数组，数组的可用大小为: PAGE_SIZE - 前面所有成员大小
 			struct flex_array_part *parts[];
 		};
 		/*
 		 * This little trick makes sure that
 		 * sizeof(flex_array) == PAGE_SIZE
 		 */
+		// padding 是占位符，保证 flex_array 的 union 结构体大小为 PAGE_SIZE(4k) 这么大。
+		// PS: union 的大小取决于其最大的成员的大小。
 		char padding[FLEX_ARRAY_BASE_SIZE];
 	};
 };

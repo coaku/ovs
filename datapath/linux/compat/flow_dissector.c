@@ -204,6 +204,7 @@ static __always_inline u32 __flow_hash_3words(u32 a, u32 b, u32 c)
 	return jhash_3words(a, b, c, hashrnd);
 }
 
+// 计算一个 sk_buff 对应的 hash 值
 u32 __skb_get_hash(struct sk_buff *skb)
 {
 	struct flow_keys keys;

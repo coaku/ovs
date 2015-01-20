@@ -681,6 +681,7 @@ int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
 	return key_extract(skb, key);
 }
 
+// 根据 tun_info 和 skb 提取出相应的 sw_flow_key
 int ovs_flow_key_extract(const struct ovs_tunnel_info *tun_info,
 			 struct sk_buff *skb, struct sw_flow_key *key)
 {
@@ -703,7 +704,7 @@ int ovs_flow_key_extract(const struct ovs_tunnel_info *tun_info,
 		memset(&key->tun_key, 0, sizeof(key->tun_key));
 	}
 
-	key->phy.priority = skb->priority;
+	key->phy.priority = skb->priority; // 从 skb 中提取出优先级，用于 QOS
 	key->phy.in_port = OVS_CB(skb)->input_vport->port_no;
 	key->phy.skb_mark = skb->mark;
 	key->ovs_flow_hash = 0;

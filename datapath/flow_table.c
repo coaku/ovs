@@ -62,9 +62,11 @@ static u16 range_n_bytes(const struct sw_flow_key_range *range)
 	return range->end - range->start;
 }
 
+// 将 src 中需要匹配的字段拷贝到 dst 中相应的位置
 void ovs_flow_mask_key(struct sw_flow_key *dst, const struct sw_flow_key *src,
 		       const struct sw_flow_mask *mask)
 {
+	// range.start 和 range.end 代表的是 sw_flow_key 中的起始偏移量和结束偏移量
 	const long *m = (const long *)((const u8 *)&mask->key +
 				mask->range.start);
 	const long *s = (const long *)((const u8 *)src +
@@ -492,9 +494,10 @@ bool ovs_flow_cmp_unmasked_key(const struct sw_flow *flow,
 	return cmp_key(&flow->unmasked_key, key, key_start, key_end);
 }
 
+// 根据掩码和 key 找到匹配的流表项
 static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
-					  const struct sw_flow_key *unmasked,
-					  const struct sw_flow_mask *mask,
+					  const struct sw_flow_key *unmasked, 	// 原始的 key 结构体
+					  const struct sw_flow_mask *mask, 	// 包含了 mask 信息后的 key 结构体
 					  u32 *n_mask_hit)
 {
 	struct sw_flow *flow;
@@ -504,10 +507,14 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
 	u32 hash;
 	struct sw_flow_key masked_key;
 
+	// 提取 sw_flow_key 中需要匹配部分的值(相当于掩码的动作)，到 masked_key 中
 	ovs_flow_mask_key(&masked_key, unmasked, mask);
+	// 计算仅需要匹配部分字段的 hash 值
 	hash = flow_hash(&masked_key, key_start, key_end);
+	// 根据 hash 值查询对应的哈希桶
 	head = find_bucket(ti, hash);
 	(*n_mask_hit)++;
+	// 在桶中遍历所有的流表项，找到对应的则退出
 	hlist_for_each_entry_rcu(flow, head, hash_node[ti->node_ver]) {
 		if (flow->mask == mask && flow->hash == hash &&
 		    flow_cmp_masked_key(flow, &masked_key,
@@ -520,6 +527,7 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
 /* Flow lookup does full lookup on flow table. It starts with
  * mask from index passed in *index.
  */
+// 查找对应的流表项
 static struct sw_flow *flow_lookup(struct flow_table *tbl,
 				   struct table_instance *ti,
 				   const struct mask_array *ma,
@@ -534,12 +542,17 @@ static struct sw_flow *flow_lookup(struct flow_table *tbl,
 	if (*index < ma->max) {
 		mask = rcu_dereference_ovsl(ma->masks[*index]);
 		if (mask) {
+			// 查询完全匹配上 key & mask 的流表项
 			flow = masked_flow_lookup(ti, key, mask, n_mask_hit);
 			if (flow)
 				return flow;
 		}
 	}
 
+	// 走到这里说明：
+	// 1. *index >= ma->max
+	// or
+	// 2. *index < ma->max && flow == NULL
 	for (i = 0; i < ma->max; i++)  {
 
 		if (i == *index)
@@ -589,12 +602,16 @@ struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
 	entries = this_cpu_ptr(tbl->mask_cache);
 
 	/* Find the cache entry 'ce' to operate on. */
+	// 通过 flow_table->mask_cache 缓存尝试快速查找位置
 	for (seg = 0; seg < MC_HASH_SEGS; seg++) {
+		// hash & 1111 1111
+		// index 值为 hash 值的后 8 位值
 		int index = hash & (MC_HASH_ENTRIES - 1);
 		struct mask_cache_entry *e;
 
 		e = &entries[index];
 		if (e->skb_hash == skb_hash) {
+			// 缓存匹配，则根据 mask_index 去查找完整的 flow 项
 			flow = flow_lookup(tbl, ti, ma, key, n_mask_hit,
 					   &e->mask_index);
 			if (!flow)

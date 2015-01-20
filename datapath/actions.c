@@ -962,6 +962,7 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
 	}
 
 	this_cpu_inc(exec_actions_level);
+	// 执行动作
 	err = do_execute_actions(dp, skb, key,
 				 acts->actions, acts->actions_len);
 

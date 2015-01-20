@@ -189,8 +189,9 @@ static struct ofservice *ofservice_lookup(struct connmgr *,
                                           const char *target);
 
 /* Connection manager for an OpenFlow switch. */
+// connmgr 管理与 OpenFlow Controller 的交互连接
 struct connmgr {
-    struct ofproto *ofproto;
+    struct ofproto *ofproto;	// 所属的 OpenFlow 交换机
     char *name;
     char *local_port_name;
 
@@ -320,6 +321,7 @@ connmgr_run(struct connmgr *mgr,
         }
     }
 
+    // 尝试从 Controller 获取 OpenFlow 消息，并处理
     LIST_FOR_EACH_SAFE (ofconn, next_ofconn, node, &mgr->all_conns) {
         ofconn_run(ofconn, handle_openflow);
     }
@@ -1340,10 +1342,13 @@ ofconn_run(struct ofconn *ofconn,
         do_send_packet_ins(ofconn, &txq);
     }
 
+    // CORE Step.
+    // 负责连接到 Controller
     rconn_run(ofconn->rconn);
 
     /* Limit the number of iterations to avoid starving other tasks. */
     for (i = 0; i < 50 && ofconn_may_recv(ofconn); i++) {
+	// 从 Controller 收取消息
         struct ofpbuf *of_msg = rconn_recv(ofconn->rconn);
         if (!of_msg) {
             break;
@@ -1353,6 +1358,7 @@ ofconn_run(struct ofconn *ofconn,
             fail_open_maybe_recover(mgr->fail_open);
         }
 
+	// 处理接收到的 openflow 消息
         handle_openflow(ofconn, of_msg);
         ofpbuf_delete(of_msg);
     }

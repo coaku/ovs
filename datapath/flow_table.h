@@ -41,24 +41,27 @@ struct mask_cache_entry {
 	u32 mask_index;
 };
 
+// sw_flow_mask 数组
 struct mask_array {
 	struct rcu_head rcu;
 	int count, max;
 	struct sw_flow_mask __rcu *masks[];
 };
 
+// 流表的表项
 struct table_instance {
-	struct flex_array *buckets;
-	unsigned int n_buckets;
+	struct flex_array *buckets; // 哈希桶地址指针
+	unsigned int n_buckets;     // 哈希桶个数
 	struct rcu_head rcu;
 	int node_ver;
-	u32 hash_seed;
-	bool keep_flows;
+	u32 hash_seed;              // 哈希算法需要的 seed，匹配时需使用
+	bool keep_flows;            // 是否保留流表项
 };
 
+// 流表
 struct flow_table {
 	struct table_instance __rcu *ti;
-	struct mask_cache_entry __percpu *mask_cache;
+	struct mask_cache_entry __percpu *mask_cache; // skb_hash 和 mask_index 的缓存项，共 256 项
 	struct mask_array __rcu *mask_array;
 	unsigned long last_rehash;
 	unsigned int count;

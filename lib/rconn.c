@@ -616,6 +616,7 @@ run_DISCONNECTED(struct rconn *rc OVS_UNUSED)
 /* Performs whatever activities are necessary to maintain 'rc': if 'rc' is
  * disconnected, attempts to (re)connect, backing off as necessary; if 'rc' is
  * connected, attempts to send packets in the send queue, if any. */
+// rconn_run 负责维护与 OpenFlow Controller 的连接保持
 void
 rconn_run(struct rconn *rc)
     OVS_EXCLUDED(rc->mutex)

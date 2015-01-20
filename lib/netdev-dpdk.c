@@ -1489,6 +1489,7 @@ dpdk_init(int argc, char **argv)
     argv++;
 
     /* Make sure things are initialized ... */
+    // 初始化 dpdk 的环境抽象层(EAL)
     result = rte_eal_init(argc, argv);
     if (result < 0) {
         ovs_abort(result, "Cannot init EAL\n");

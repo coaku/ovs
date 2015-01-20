@@ -86,6 +86,7 @@ guarded_list_pop_all(struct guarded_list *list, struct list *elements)
     size_t n;
 
     ovs_mutex_lock(&list->mutex);
+    // list move from @&list->list -> @elements
     list_move(elements, &list->list);
     n = list->n;
 

@@ -119,6 +119,7 @@ static inline void ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
 	(offsetof(struct sw_flow_key, recirc_id) +	\
 	FIELD_SIZEOF(struct sw_flow_key, recirc_id))
 
+// 流表中的 key
 struct sw_flow_key {
 	u8 tun_opts[255];
 	u8 tun_opts_len;
@@ -178,16 +179,17 @@ struct sw_flow_key {
 	};
 } __aligned(BITS_PER_LONG/8); /* Ensure that we can do comparisons as longs. */
 
+// 流表中 key 的匹配范围，因为 key 值中有一部分的数据不用匹配
 struct sw_flow_key_range {
-	unsigned short int start;
-	unsigned short int end;
+	unsigned short int start; 	// 代表 sw_flow_key 中的开始匹配的起始偏移量
+	unsigned short int end;		// 代表 sw_flow_key 中的匹配结束的结束偏移量
 };
 
 struct sw_flow_mask {
 	int ref_count;
 	struct rcu_head rcu;
-	struct sw_flow_key_range range;
-	struct sw_flow_key key;
+	struct sw_flow_key_range range;	// 操作范围结构体，因为 key 值中有些数据不用匹配
+	struct sw_flow_key key; 	// 将要被用来匹配的 key 值
 };
 
 struct sw_flow_match {
@@ -210,17 +212,18 @@ struct flow_stats {
 	__be16 tcp_flags;		/* Union of seen TCP flags. */
 };
 
+// 流表项结构体
 struct sw_flow {
 	struct rcu_head rcu;
 	struct hlist_node hash_node[2];
-	u32 hash;
+	u32 hash;                       // hash 值
 	int stats_last_writer;		/* NUMA-node id of the last writer on
 					 * 'stats[0]'.
 					 */
-	struct sw_flow_key key;
-	struct sw_flow_key unmasked_key;
-	struct sw_flow_mask *mask;
-	struct sw_flow_actions __rcu *sf_acts;
+	struct sw_flow_key key;         // 流表中的 key 值
+	struct sw_flow_key unmasked_key;// 另一个 key 值
+	struct sw_flow_mask *mask;      // 匹配时用的 mask 结构
+	struct sw_flow_actions __rcu *sf_acts; // 相应的 action 动作
 	struct flow_stats __rcu *stats[]; /* One for each NUMA node.  First one
 					   * is allocated at flow creation time,
 					   * the rest are allocated on demand

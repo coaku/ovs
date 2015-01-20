@@ -292,8 +292,8 @@ static void meter_insert_rule(struct rule *);
 static void ofproto_unixctl_init(void);
 
 /* All registered ofproto classes, in probe order. */
-static const struct ofproto_class **ofproto_classes;
-static size_t n_ofproto_classes;
+static const struct ofproto_class **ofproto_classes; 	// 所有的 ofproto class 都注册到这里
+static size_t n_ofproto_classes; 			// 全局 ofproto class 的个数
 static size_t allocated_ofproto_classes;
 
 /* Global lock that protects all flow table operations. */
@@ -332,21 +332,25 @@ ofproto_init(const struct shash *iface_hints)
     struct shash_node *node;
     size_t i;
 
+    // 注册 ofproto_dpif_class 这个 ofproto provider
     ofproto_class_register(&ofproto_dpif_class);
 
     /* Make a local copy, since we don't own 'iface_hints' elements. */
+    // 拷贝出所有 openflow bridge 上 interface 的信息
     SHASH_FOR_EACH(node, iface_hints) {
-        const struct iface_hint *orig_hint = node->data;
+        const struct iface_hint *orig_hint = node->data; // node->data 即 iface_hint 结构本体
         struct iface_hint *new_hint = xmalloc(sizeof *new_hint);
         const char *br_type = ofproto_normalize_type(orig_hint->br_type);
 
-        new_hint->br_name = xstrdup(orig_hint->br_name);
-        new_hint->br_type = xstrdup(br_type);
+        new_hint->br_name = xstrdup(orig_hint->br_name);// dump bridge name string
+        new_hint->br_type = xstrdup(br_type); 		// dump bridge type string
         new_hint->ofp_port = orig_hint->ofp_port;
 
+	// 将 interface 信息加入 init_ofp_ports 列表
         shash_add(&init_ofp_ports, node->name, new_hint);
     }
 
+    // 挨个调用初始化函数
     for (i = 0; i < n_ofproto_classes; i++) {
         ofproto_classes[i]->init(&init_ofp_ports);
     }
@@ -378,6 +382,7 @@ ofproto_class_find__(const char *type)
     return NULL;
 }
 
+// 注册一个 ofproto class 实现
 /* Registers a new ofproto class.  After successful registration, new ofprotos
  * of that type can be created using ofproto_create(). */
 int
@@ -1539,11 +1544,15 @@ ofproto_run(struct ofproto *p)
     int error;
     uint64_t new_seq;
 
+    // 开始启动 openflow 协议需要的重要工作：
+    // 1. 相应 datapath 无法处理的数据包
+    // 2. 淘汰过期的 flow 规则
     error = p->ofproto_class->run(p);
     if (error && error != EAGAIN) {
         VLOG_ERR_RL(&rl, "%s: run failed (%s)", p->name, ovs_strerror(error));
     }
 
+    // 将列表 ofproto->rule_executes 中的 rule_execute 传递给 ofproto provider 处理，执行相应的 action
     run_rule_executes(p);
 
     /* Restore the eviction group heap invariant occasionally. */
@@ -1591,6 +1600,7 @@ ofproto_run(struct ofproto *p)
     if (p->ofproto_class->port_poll) {
         char *devname;
 
+	// 调用 port_poll 检查是否有 port 发生变化(新增或删除)
         while ((error = p->ofproto_class->port_poll(p, &devname)) != EAGAIN) {
             process_port_change(p, error, devname);
         }
@@ -1626,6 +1636,7 @@ ofproto_run(struct ofproto *p)
         p->change_seq = new_seq;
     }
 
+    // 启动与 OpenFlow Controller 的连接保持与交互
     connmgr_run(p->connmgr, handle_openflow);
 
     return error;
@@ -2157,6 +2168,7 @@ ofport_open(struct ofproto *ofproto,
     struct netdev *netdev;
     int error;
 
+    // impelemented in "lib/netdev.c"
     error = netdev_open(ofproto_port->name, ofproto_port->type, &netdev);
     if (error) {
         VLOG_WARN_RL(&rl, "%s: ignoring port %s (%"PRIu16") because netdev %s "
@@ -2445,12 +2457,14 @@ update_port(struct ofproto *ofproto, const char *name)
 
     COVERAGE_INC(ofproto_update_port);
 
+    // 打开 port 对应的 network device
     /* Fetch 'name''s location and properties from the datapath. */
     netdev = (!ofproto_port_query_by_name(ofproto, name, &ofproto_port)
               ? ofport_open(ofproto, &ofproto_port, &pp)
               : NULL);
 
     if (netdev) {
+	// 找到对应的 ofport 对象
         port = ofproto_get_port(ofproto, ofproto_port.ofp_port);
         if (port && !strcmp(netdev_get_name(port->netdev), name)) {
             struct netdev *old_netdev = port->netdev;
@@ -2753,12 +2767,14 @@ run_rule_executes(struct ofproto *ofproto)
     struct rule_execute *e, *next;
     struct list executes;
 
+    // pop from @ofproto->rule_executes -> @executes
     guarded_list_pop_all(&ofproto->rule_executes, &executes);
+    // 遍历 @executes
     LIST_FOR_EACH_SAFE (e, next, list_node, &executes) {
         struct flow flow;
 
-        flow_extract(e->packet, NULL, &flow);
-        flow.in_port.ofp_port = e->in_port;
+        flow_extract(e->packet, NULL, &flow);	// 从 e->packaet 中提取 flow 信息到 @flow 中
+        flow.in_port.ofp_port = e->in_port;	// 提取 in_port 值
         ofproto->ofproto_class->rule_execute(e->rule, &flow, e->packet);
 
         rule_execute_destroy(e);
@@ -6360,6 +6376,7 @@ handle_openflow__(struct ofconn *ofconn, const struct ofpbuf *msg)
     }
 }
 
+// 处理 openflow 通信的核心函数
 static void
 handle_openflow(struct ofconn *ofconn, const struct ofpbuf *ofp_msg)
     OVS_EXCLUDED(ofproto_mutex)

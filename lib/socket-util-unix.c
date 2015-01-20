@@ -315,11 +315,13 @@ make_unix_socket(int style, bool nonblock,
     int error;
     int fd;
 
+    // step1. 创建一个 unix socket 
     fd = socket(PF_UNIX, style, 0);
     if (fd < 0) {
         return -errno;
     }
 
+    // step2. 设置为非阻塞
     /* Set nonblocking mode right away, if we want it.  This prevents blocking
      * in connect(), if connect_path != NULL.  (In turn, that's a corner case:
      * it will only happen if style is SOCK_STREAM or SOCK_SEQPACKET, and only
@@ -360,7 +362,9 @@ make_unix_socket(int style, bool nonblock,
         socklen_t un_len;
         int dirfd;
 
+	// step3. 根据 connect_path 生成对应的 unix socket 地址
         error = make_sockaddr_un(connect_path, &un, &un_len, &dirfd, linkname);
+	// step4. 与 unix socket 地址建立连接
         if (!error
             && connect(fd, (struct sockaddr*) &un, un_len)
             && errno != EINPROGRESS) {

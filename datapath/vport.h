@@ -102,16 +102,19 @@ struct vport_portids {
  * @percpu_stats: Points to per-CPU statistics used and maintained by vport
  * @err_stats: Points to error statistics used and maintained by vport
  */
+// 网桥中各个端口的结构体
 struct vport {
 	struct rcu_head rcu;
-	struct datapath	*dp;
+	struct datapath	*dp; // 网桥结构体指针，表示该端口属于哪个网桥
 	struct vport_portids __rcu *upcall_portids;
-	u16 port_no;
+	u16 port_no;         // 端口号，唯一标识该端口
 
+	// 一个网桥上有多个端口，这些端口使用哈希链表进行存储
 	struct hlist_node hash_node;
 	struct hlist_node dp_hash_node;
-	const struct vport_ops *ops;
+	const struct vport_ops *ops; // 端口结构体的操作函数
 
+	// 每个 cpu 的统计数据使用和维护
 	struct pcpu_sw_netstats __percpu *percpu_stats;
 
 	struct vport_err_stats err_stats;

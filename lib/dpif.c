@@ -62,6 +62,7 @@ COVERAGE_DEFINE(dpif_execute);
 COVERAGE_DEFINE(dpif_purge);
 COVERAGE_DEFINE(dpif_execute_with_help);
 
+// ovs 中基础的两个 dpif_class: dpif_netlink_class 和 dpif_netdev_class
 static const struct dpif_class *base_dpif_classes[] = {
 #if defined(__linux__) || defined(_WIN32)
     &dpif_netlink_class,
@@ -109,6 +110,7 @@ static void log_flow_get_message(const struct dpif *,
 /* Incremented whenever tnl route, arp, etc changes. */
 struct seq *tnl_conf_seq;
 
+// 初始化/注册 datapath 的实现
 static void
 dp_initialize(void)
 {
@@ -123,6 +125,10 @@ dp_initialize(void)
         tnl_arp_cache_init();
         route_table_init();
 
+	// ovs 中基础的两个 dpif_class:
+	// 	dpif_netlink_class 和 dpif_netdev_class
+	// 这里将这两个 class 注册到全局 dpif_classes 中
+	// 两个 class 的 type 分别为："system" and "netdev"
         for (i = 0; i < ARRAY_SIZE(base_dpif_classes); i++) {
             dp_register_provider(base_dpif_classes[i]);
         }
@@ -228,16 +234,19 @@ dp_blacklist_provider(const char *type)
 
 /* Adds the types of all currently registered datapath providers to 'types'.
  * The caller must first initialize the sset. */
+// 注册 datapath 对象，并保存各自的 type 字段到 types 集合
 void
 dp_enumerate_types(struct sset *types)
 {
     struct shash_node *node;
 
+    // 注册 datapath 的几种实现
     dp_initialize();
 
     ovs_mutex_lock(&dpif_mutex);
     SHASH_FOR_EACH(node, &dpif_classes) {
         const struct registered_dpif_class *registered_class = node->data;
+	// 将所有 datapath 的 type 字段保存进全局集合 @types 中
         sset_add(types, registered_class->dpif_class->type);
     }
     ovs_mutex_unlock(&dpif_mutex);
